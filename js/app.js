@@ -1,503 +1,511 @@
-// Spendly – Expense & Budget Visualizer | Main Application Script
+// ============================================
+// Spendly – Expense & Budget Visualizer
+// Main Application JavaScript
+// ============================================
 
-// ─── UTILITY FUNCTIONS ──────────────────────────────────────────────────────
+// ============================================
+// Utility Functions
+// ============================================
 
 /**
- * Generates a UUID v4 string.
- * Uses crypto.randomUUID() when available (modern browsers),
- * falls back to a manual Math.random()-based implementation for older browsers.
- *
- * @returns {string} A UUID v4 string, e.g. "a3f8c2d1-1234-4abc-8def-000000000001"
- * Requirements: 1.5
+ * Generate a unique ID for each transaction
  */
 function generateUUID() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  // Manual fallback: RFC 4122 version 4 UUID
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 }
 
 /**
- * Formats a number as Indonesian Rupiah currency string.
- * Uses "Rp" prefix, dot as thousands separator, and no decimal places.
- *
- * @param {number} amount - The numeric amount to format.
- * @returns {string} Formatted Rupiah string, e.g. 15000 → "Rp15.000"
- * Requirements: 2.4, 4.4, 7.2
+ * Format number as Indonesian Rupiah
  */
 function formatRupiah(amount) {
-  const rounded = Math.round(amount);
-  // Build thousands-separated string using Indonesian locale conventions
-  const parts = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return 'Rp' + parts;
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
 }
 
 /**
- * Validates the transaction form inputs.
- *
- * @param {string} description - The expense name (from text input).
- * @param {string|number} amount - The nominal amount (from number input).
- * @param {string} category - The selected category (from select dropdown).
- * @returns {{ valid: boolean, errors: { description?: string, amount?: string, category?: string } }}
- * Requirements: 1.2, 1.4, 1.7, 1.8, 1.9
+ * Validate transaction form data
  */
 function validateForm(description, amount, category) {
-  const VALID_CATEGORIES = ['Food', 'Transport', 'Fun'];
   const errors = {};
 
-  // Validate description: must not be empty or whitespace-only
-  if (!description || String(description).trim() === '') {
-    errors.description = 'Nama pengeluaran wajib diisi';
+  if (!description || description.trim() === '') {
+    errors.description = 'Expense name is required';
   }
 
-  // Validate amount: must be a number between 0.01 and 999999999.99 inclusive
-  const numAmount = Number(amount);
+  const numericAmount = Number(amount);
+
   if (
     amount === '' ||
     amount === null ||
-    amount === undefined ||
-    isNaN(numAmount) ||
-    numAmount < 0.01 ||
-    numAmount > 999999999.99
+    isNaN(numericAmount) ||
+    numericAmount < 0.01 ||
+    numericAmount > 999999999.99
   ) {
-    errors.amount = 'Nominal harus berupa angka antara 0,01 dan 999.999.999,99';
+    errors.amount = 'Amount must be between 0.01 and 999,999,999.99';
   }
 
-  // Validate category: must be one of the valid options
-  if (!VALID_CATEGORIES.includes(category)) {
-    errors.category = 'Kategori wajib dipilih';
+  const validCategories = ['Food', 'Transport', 'Fun'];
+
+  if (!category || !validCategories.includes(category)) {
+    errors.category = 'Category is required';
   }
 
-  return {
-    valid: Object.keys(errors).length === 0,
-    errors,
-  };
+  return errors;
 }
 
 /**
- * Calculates the total sum of all transaction amounts.
- *
- * @param {Array<{amount: number}>} transactions - Array of transaction objects.
- * @returns {number} The total sum of all amounts, or 0 for an empty array.
- * Requirements: 4.1, 4.2, 4.3
+ * Calculate total expenses
  */
 function calculateTotal(transactions) {
-  if (!transactions || transactions.length === 0) return 0;
-  return transactions.reduce((sum, tx) => sum + tx.amount, 0);
+  return transactions.reduce((total, transaction) => {
+    return total + Number(transaction.amount);
+  }, 0);
 }
 
 /**
- * Aggregates transaction amounts grouped by category.
- * Only includes categories that have at least one transaction.
- *
- * @param {Array<{category: string, amount: number}>} transactions - Array of transaction objects.
- * @returns {{ [category: string]: number }} Object mapping category name to total amount.
- * Example: { "Food": 45000, "Transport": 20000 }
- * Requirements: 5.1, 5.2
+ * Group transactions by category
  */
 function aggregateByCategory(transactions) {
-  if (!transactions || transactions.length === 0) return {};
-  return transactions.reduce((acc, tx) => {
-    acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
-    return acc;
-  }, {});
+  const result = {
+    Food: 0,
+    Transport: 0,
+    Fun: 0
+  };
+
+  transactions.forEach(transaction => {
+    if (result.hasOwnProperty(transaction.category)) {
+      result[transaction.category] += Number(transaction.amount);
+    }
+  });
+
+  return result;
 }
 
 /**
- * Returns a new sorted copy of the transactions array based on the given sort option.
- * Does NOT mutate the input array.
- *
- * @param {Array<{date: string, amount: number, category: string}>} transactions - Array of transaction objects.
- * @param {'date-desc'|'amount-asc'|'amount-desc'|'category-asc'} sortOption - The sort order to apply.
- * @returns {Array} A new sorted array.
- * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+ * Sort transactions based on selected option
  */
 function sortTransactions(transactions, sortOption) {
-  if (!transactions || transactions.length === 0) return [];
-
-  const copy = [...transactions];
+  const sorted = [...transactions];
 
   switch (sortOption) {
-    case 'amount-asc':
-      return copy.sort((a, b) => a.amount - b.amount);
-
     case 'amount-desc':
-      return copy.sort((a, b) => b.amount - a.amount);
+      return sorted.sort((a, b) => Number(b.amount) - Number(a.amount));
+
+    case 'amount-asc':
+      return sorted.sort((a, b) => Number(a.amount) - Number(b.amount));
 
     case 'category-asc':
-      return copy.sort((a, b) => a.category.localeCompare(b.category));
+      return sorted.sort((a, b) => {
+        return a.category.localeCompare(b.category);
+      });
 
     case 'date-desc':
     default:
-      // Sort by date string descending (ISO strings compare correctly lexicographically)
-      return copy.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+      return sorted.sort((a, b) => {
+        return new Date(b.date) - new Date(a.date);
+      });
   }
 }
 
 /**
- * Groups transactions by month and year, computing the total amount per month.
- * Returns groups sorted from newest to oldest. Months with no transactions are excluded.
- *
- * @param {Array<{date: string, amount: number}>} transactions - Array of transaction objects.
- * @returns {Array<{ label: string, total: number, key: string }>}
- *   Sorted array of monthly groups.
- *   - label: Indonesian month name + year, e.g. "Juli 2024"
- *   - total: Sum of all amounts for that month
- *   - key: "YYYY-MM" string for sorting
- * Requirements: 7.1, 7.4
+ * Group transactions by month
  */
+const MONTH_NAMES_EN = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
+];
+
 function groupByMonth(transactions) {
-  const MONTH_NAMES_ID = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ];
+  const grouped = {};
 
-  if (!transactions || transactions.length === 0) return [];
+  transactions.forEach(transaction => {
+    const date = new Date(transaction.date);
+    const year = date.getFullYear();
+    const month = date.getMonth();
 
-  // Aggregate totals per "YYYY-MM" key
-  const monthMap = {};
-  for (const tx of transactions) {
-    const dateObj = new Date(tx.date);
-    const year = dateObj.getFullYear();
-    const month = dateObj.getMonth(); // 0-indexed
     const key = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-    if (!monthMap[key]) {
-      monthMap[key] = {
-        label: `${MONTH_NAMES_ID[month]} ${year}`,
-        total: 0,
-        key,
+    if (!grouped[key]) {
+      grouped[key] = {
+        year,
+        month,
+        label: `${MONTH_NAMES_EN[month]} ${year}`,
+        total: 0
       };
     }
-    monthMap[key].total += tx.amount;
-  }
 
-  // Convert to array and sort descending by key (newest first)
-  return Object.values(monthMap).sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0));
+    grouped[key].total += Number(transaction.amount);
+  });
+
+  return Object.values(grouped).sort((a, b) => {
+    if (a.year !== b.year) {
+      return b.year - a.year;
+    }
+
+    return b.month - a.month;
+  });
 }
 
-// ─── STATE & CONSTANTS ───────────────────────────────────────────────────────
+
+// ============================================
+// Application State
+// ============================================
 
 const CATEGORIES = ['Food', 'Transport', 'Fun'];
 
 const CATEGORY_COLORS = {
-  'Food':      '#FF6B6B',  // coral red
-  'Transport': '#4ECDC4',  // teal
-  'Fun':       '#FFE66D',  // yellow
+  Food: '#ff6384',
+  Transport: '#36a2eb',
+  Fun: '#ffcd56'
 };
 
-let transactions = [];         // Array of Transaction objects — single source of truth
-let currentSort = 'date-desc'; // Active sort option: 'date-desc' | 'amount-asc' | 'amount-desc' | 'category-asc'
-let pendingDeleteId = null;    // ID of transaction awaiting delete confirmation
+let transactions = [];
+let currentSort = 'date-desc';
+let pendingDeleteId = null;
 
-// Requirements: 8.5
 
-// ─── STORAGE ──────────────────────────────────────────────────────────────────
+// ============================================
+// Local Storage
+// ============================================
 
-/**
- * Displays a global error message banner.
- * The DOM element #global-error will be created in Task 4.
- * @param {string} message
- */
+const STORAGE_KEY = 'spendly_transactions';
+
 function showGlobalError(message) {
   const el = document.getElementById('global-error');
+
   if (!el) return;
+
   el.textContent = message;
-  el.hidden = false;
-  // Auto-hide after 5 seconds
-  setTimeout(() => { el.hidden = true; }, 5000);
+  el.classList.remove('hidden');
+
+  setTimeout(() => {
+    el.classList.add('hidden');
+  }, 5000);
 }
 
-/**
- * Persists the current transactions array to localStorage as JSON.
- * Shows a global error banner if the save fails (e.g. storage full).
- * Requirements: 6.1, 6.2, 3.7
- */
 function saveToStorage() {
   try {
-    localStorage.setItem('spendly_transactions', JSON.stringify(transactions));
-  } catch (e) {
-    showGlobalError('Data tidak dapat disimpan. Penyimpanan lokal mungkin penuh.');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+  } catch (error) {
+    showGlobalError(
+      'Data could not be saved. Local storage may be full.'
+    );
   }
 }
 
-/**
- * Loads transactions from localStorage.
- * Returns an empty array if no data found.
- * Clears corrupted data and returns empty array if JSON is invalid.
- * Requirements: 6.3, 6.4, 6.5
- */
 function loadFromStorage() {
   try {
-    const raw = localStorage.getItem('spendly_transactions');
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    localStorage.removeItem('spendly_transactions');
-    showGlobalError('Data tersimpan tidak dapat dimuat dan telah dihapus.');
+    const savedData = localStorage.getItem(STORAGE_KEY);
+
+    if (!savedData) {
+      return [];
+    }
+
+    const parsedData = JSON.parse(savedData);
+
+    if (!Array.isArray(parsedData)) {
+      return [];
+    }
+
+    return parsedData;
+  } catch (error) {
+    localStorage.removeItem(STORAGE_KEY);
+
+    showGlobalError(
+      'Saved data could not be loaded and has been cleared.'
+    );
+
     return [];
   }
 }
 
-// ─── MUTATIONS ────────────────────────────────────────────────────────────────
 
-/**
- * Creates a new transaction and adds it to state, then syncs storage and re-renders.
- * Requirements: 1.5, 7.5
- */
+// ============================================
+// Transaction Mutations
+// ============================================
+
 function addTransaction(description, amount, category) {
-  const tx = {
+  const transaction = {
     id: generateUUID(),
-    description: String(description).trim(),
+    description: description.trim(),
     amount: Number(amount),
     category,
-    date: new Date().toISOString(),
+    date: new Date().toISOString()
   };
-  transactions.push(tx);
+
+  transactions.push(transaction);
   saveToStorage();
   renderAll();
 }
 
-/**
- * Removes the transaction with the given id from state, then syncs storage and re-renders.
- * Requirements: 3.3, 3.5, 3.6
- */
 function deleteTransaction(id) {
-  transactions = transactions.filter(tx => tx.id !== id);
+  transactions = transactions.filter(transaction => {
+    return transaction.id !== id;
+  });
+
   saveToStorage();
   renderAll();
 }
 
-// ─── RENDER FUNCTIONS ─────────────────────────────────────────────────────────
 
-/**
- * Renders the total balance/summary panel.
- */
+// ============================================
+// Render Summary
+// ============================================
+
 function renderSummaryPanel() {
   const totalDisplay = document.getElementById('total-display');
 
   if (!totalDisplay) return;
 
   const total = calculateTotal(transactions);
+
   totalDisplay.textContent = formatRupiah(total);
 }
 
 
-/**
- * Renders the transaction list based on the current sort option.
- */
+// ============================================
+// Render Transaction List
+// ============================================
+
 function renderTransactionList() {
-  const transactionList = document.getElementById('transaction-list');
-  const emptyMsg = document.getElementById('empty-msg');
-  const sortControl = document.getElementById('sort-control');
+  const list = document.getElementById('transaction-list');
+  const emptyMessage = document.getElementById('empty-msg');
 
-  if (!transactionList) return;
+  if (!list || !emptyMessage) return;
 
-  const sortedTransactions = sortTransactions(transactions, currentSort);
+  const sortedTransactions = sortTransactions(
+    transactions,
+    currentSort
+  );
 
-  transactionList.innerHTML = '';
-
-  if (sortControl) {
-    sortControl.value = currentSort;
-  }
+  list.innerHTML = '';
 
   if (sortedTransactions.length === 0) {
-    if (emptyMsg) {
-      emptyMsg.hidden = false;
-    }
+    emptyMessage.classList.remove('hidden');
     return;
   }
 
-  if (emptyMsg) {
-    emptyMsg.hidden = true;
-  }
+  emptyMessage.classList.add('hidden');
 
-  sortedTransactions.forEach((tx) => {
+  sortedTransactions.forEach(transaction => {
     const item = document.createElement('div');
-    item.className = 'transaction-item';
 
-    const date = new Date(tx.date);
+    const date = new Date(transaction.date);
 
-    const formattedDate = date.toLocaleDateString('id-ID', {
-      day: '2-digit',
+    const formattedDate = date.toLocaleDateString('en-US', {
+      year: 'numeric',
       month: 'short',
-      year: 'numeric'
+      day: 'numeric'
     });
+
+    item.className = 'transaction-item';
 
     item.innerHTML = `
       <div class="transaction-info">
-        <div class="transaction-name">${tx.description}</div>
+        <div class="transaction-name">
+          ${escapeHTML(transaction.description)}
+        </div>
+
         <div class="transaction-meta">
-          <span class="transaction-category">${tx.category}</span>
-          <span class="transaction-date">${formattedDate}</span>
+          <span class="transaction-category ${transaction.category.toLowerCase()}">
+            ${escapeHTML(transaction.category)}
+          </span>
+
+          <span class="transaction-date">
+            ${formattedDate}
+          </span>
         </div>
       </div>
 
       <div class="transaction-right">
-        <span class="transaction-amount">${formatRupiah(tx.amount)}</span>
+        <div class="transaction-amount">
+          ${formatRupiah(transaction.amount)}
+        </div>
+
         <button
           type="button"
           class="btn-delete"
-          data-id="${tx.id}"
-          aria-label="Hapus ${tx.description}"
+          data-id="${transaction.id}"
+          aria-label="Delete ${escapeHTML(transaction.description)}"
         >
-          Hapus
+          Delete
         </button>
       </div>
     `;
 
-    transactionList.appendChild(item);
+    list.appendChild(item);
   });
 }
 
 
-/**
- * Renders the pie chart and its legend.
- */
+// ============================================
+// Escape HTML
+// ============================================
+
+function escapeHTML(value) {
+  const div = document.createElement('div');
+  div.textContent = value;
+  return div.innerHTML;
+}
+
+
+// ============================================
+// Render Pie Chart
+// ============================================
+
 function renderPieChart() {
   const canvas = document.getElementById('pie-chart');
+  const emptyMessage = document.getElementById('chart-empty-msg');
   const legend = document.getElementById('chart-legend');
-  const emptyMsg = document.getElementById('chart-empty-msg');
 
-  if (!canvas) return;
+  if (!canvas || !emptyMessage || !legend) return;
 
-  const categoryTotals = aggregateByCategory(transactions);
-  const entries = Object.entries(categoryTotals);
+  const context = canvas.getContext('2d');
 
-  // Clear previous chart and legend
-  const ctx = canvas.getContext('2d');
+  context.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
 
-  if (ctx) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
+  legend.innerHTML = '';
 
-  if (legend) {
-    legend.innerHTML = '';
-  }
-
-  // Show empty state when there are no transactions
-  if (entries.length === 0) {
-    canvas.hidden = true;
-
-    if (emptyMsg) {
-      emptyMsg.hidden = false;
-    }
-
+  if (transactions.length === 0) {
+    canvas.classList.add('hidden');
+    emptyMessage.classList.remove('hidden');
     return;
   }
 
-  canvas.hidden = false;
+  canvas.classList.remove('hidden');
+  emptyMessage.classList.add('hidden');
 
-  if (emptyMsg) {
-    emptyMsg.hidden = true;
-  }
+  const categoryData = aggregateByCategory(transactions);
 
-  if (!ctx) return;
+  const total = Object.values(categoryData).reduce(
+    (sum, value) => sum + value,
+    0
+  );
 
-  const total = entries.reduce((sum, [, amount]) => sum + amount, 0);
-
-  // Set canvas size
-  const size = 300;
-  canvas.width = size;
-  canvas.height = size;
-
-  const centerX = size / 2;
-  const centerY = size / 2;
-  const radius = 110;
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = Math.min(centerX, centerY) - 10;
 
   let startAngle = -Math.PI / 2;
 
-  entries.forEach(([category, amount]) => {
-    const percentage = amount / total;
-    const sliceAngle = percentage * Math.PI * 2;
+  Object.entries(categoryData).forEach(([category, amount]) => {
+    if (amount <= 0) return;
+
+    const sliceAngle = (amount / total) * Math.PI * 2;
     const endAngle = startAngle + sliceAngle;
 
-    // Draw slice
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.arc(
+    context.beginPath();
+    context.moveTo(centerX, centerY);
+    context.arc(
       centerX,
       centerY,
       radius,
       startAngle,
       endAngle
     );
-    ctx.closePath();
+    context.closePath();
 
-    ctx.fillStyle = CATEGORY_COLORS[category] || '#999999';
-    ctx.fill();
-
-    // Small border between slices
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    context.fillStyle = CATEGORY_COLORS[category];
+    context.fill();
 
     startAngle = endAngle;
 
-    // Render legend
-    if (legend) {
-      const legendItem = document.createElement('div');
-      legendItem.className = 'chart-legend-item';
+    const legendItem = document.createElement('div');
 
-      const percentageText = (percentage * 100).toFixed(1);
+    legendItem.className = 'legend-item';
 
-      legendItem.innerHTML = `
-        <span
-          class="legend-color"
-          style="background-color: ${CATEGORY_COLORS[category] || '#999999'}"
-        ></span>
-        <span class="legend-name">${category}</span>
-        <span class="legend-percentage">${percentageText}%</span>
-      `;
+    legendItem.innerHTML = `
+      <span
+        class="legend-color"
+        style="background-color: ${CATEGORY_COLORS[category]}"
+      ></span>
 
-      legend.appendChild(legendItem);
-    }
+      <span class="legend-label">
+        ${escapeHTML(category)}
+      </span>
+
+      <span class="legend-value">
+        ${formatRupiah(amount)}
+      </span>
+    `;
+
+    legend.appendChild(legendItem);
   });
 }
 
 
-/**
- * Renders the monthly spending summary.
- */
+// ============================================
+// Render Monthly Summary
+// ============================================
+
 function renderMonthlySummary() {
-  const monthlySummary = document.getElementById('monthly-summary');
+  const container = document.getElementById('monthly-summary');
 
-  if (!monthlySummary) return;
+  if (!container) return;
 
-  const monthlyGroups = groupByMonth(transactions);
+  container.innerHTML = '';
 
-  monthlySummary.innerHTML = '';
+  const monthlyData = groupByMonth(transactions);
 
-  if (monthlyGroups.length === 0) {
-    monthlySummary.hidden = true;
+  if (monthlyData.length === 0) {
+    container.innerHTML = `
+      <div class="monthly-empty">
+        No transactions yet.
+      </div>
+    `;
+
     return;
   }
 
-  monthlySummary.hidden = false;
-
-  monthlyGroups.forEach((group) => {
+  monthlyData.forEach(monthData => {
     const item = document.createElement('div');
-    item.className = 'monthly-summary-item';
+
+    item.className = 'monthly-item';
 
     item.innerHTML = `
-      <span class="monthly-label">${group.label}</span>
-      <span class="monthly-total">${formatRupiah(group.total)}</span>
+      <div class="monthly-info">
+        <span class="monthly-month">
+          ${escapeHTML(monthData.label)}
+        </span>
+      </div>
+
+      <div class="monthly-total">
+        ${formatRupiah(monthData.total)}
+      </div>
     `;
 
-    monthlySummary.appendChild(item);
+    container.appendChild(item);
   });
 }
 
 
-/**
- * Renders all parts of the application.
- */
+// ============================================
+// Render All Components
+// ============================================
+
 function renderAll() {
   renderSummaryPanel();
   renderTransactionList();
@@ -505,12 +513,14 @@ function renderAll() {
   renderMonthlySummary();
 }
 
-// ─── EVENT HANDLERS ───────────────────────────────────────────────────────────
 
-/**
- * Handles adding a new transaction.
- */
-function handleAddTransaction() {
+// ============================================
+// Event Handlers
+// ============================================
+
+function handleAddTransaction(event) {
+  event.preventDefault();
+
   const nameInput = document.getElementById('input-name');
   const amountInput = document.getElementById('input-amount');
   const categoryInput = document.getElementById('select-category');
@@ -519,49 +529,67 @@ function handleAddTransaction() {
   const errorAmount = document.getElementById('error-amount');
   const errorCategory = document.getElementById('error-category');
 
-  const description = nameInput.value;
+  const name = nameInput.value;
   const amount = amountInput.value;
   const category = categoryInput.value;
 
-  const result = validateForm(description, amount, category);
+  const errors = validateForm(
+    name,
+    amount,
+    category
+  );
 
-  // Clear previous errors
+  errorName.textContent = errors.description || '';
+  errorAmount.textContent = errors.amount || '';
+  errorCategory.textContent = errors.category || '';
+
+  if (errors.description) {
+    nameInput.classList.add('input-error');
+  } else {
+    nameInput.classList.remove('input-error');
+  }
+
+  if (errors.amount) {
+    amountInput.classList.add('input-error');
+  } else {
+    amountInput.classList.remove('input-error');
+  }
+
+  if (errors.category) {
+    categoryInput.classList.add('input-error');
+  } else {
+    categoryInput.classList.remove('input-error');
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return;
+  }
+
+  addTransaction(
+    name,
+    amount,
+    category
+  );
+
+  event.target.reset();
+
   errorName.textContent = '';
   errorAmount.textContent = '';
   errorCategory.textContent = '';
 
-  if (!result.valid) {
-    if (result.errors.description) {
-      errorName.textContent = result.errors.description;
-    }
-
-    if (result.errors.amount) {
-      errorAmount.textContent = result.errors.amount;
-    }
-
-    if (result.errors.category) {
-      errorCategory.textContent = result.errors.category;
-    }
-
-    return;
-  }
-
-  addTransaction(description, amount, category);
-
-  // Reset form after successful addition
-  nameInput.value = '';
-  amountInput.value = '';
-  categoryInput.value = '';
+  nameInput.classList.remove('input-error');
+  amountInput.classList.remove('input-error');
+  categoryInput.classList.remove('input-error');
 
   nameInput.focus();
 }
 
+function handleDeleteClick(event) {
+  const button = event.target.closest('.btn-delete');
 
-/**
- * Shows the delete confirmation dialog.
- */
-function handleDeleteClick(id) {
-  pendingDeleteId = id;
+  if (!button) return;
+
+  pendingDeleteId = button.dataset.id;
 
   const dialog = document.getElementById('confirm-dialog');
 
@@ -570,10 +598,6 @@ function handleDeleteClick(id) {
   }
 }
 
-
-/**
- * Confirms and executes a transaction deletion.
- */
 function handleConfirmDelete() {
   if (!pendingDeleteId) return;
 
@@ -588,10 +612,6 @@ function handleConfirmDelete() {
   }
 }
 
-
-/**
- * Cancels the delete confirmation.
- */
 function handleCancelDelete() {
   pendingDeleteId = null;
 
@@ -602,141 +622,185 @@ function handleCancelDelete() {
   }
 }
 
-
-/**
- * Handles transaction sorting.
- */
 function handleSortChange(event) {
   currentSort = event.target.value;
+
   renderTransactionList();
 }
 
 
-/**
- * Toggles between light and dark mode.
- */
+// ============================================
+// Theme
+// ============================================
+
+function updateThemeIcon(theme) {
+  const lightIcon = document.querySelector('.theme-icon-light');
+  const darkIcon = document.querySelector('.theme-icon-dark');
+
+  if (!lightIcon || !darkIcon) return;
+
+  if (theme === 'dark') {
+    lightIcon.classList.add('hidden');
+    darkIcon.classList.remove('hidden');
+  } else {
+    lightIcon.classList.remove('hidden');
+    darkIcon.classList.add('hidden');
+  }
+}
+
 function toggleTheme() {
-  const html = document.documentElement;
-  const isDark = html.classList.toggle('dark');
+  const currentTheme =
+    document.documentElement.getAttribute('data-theme');
+
+  const newTheme =
+    currentTheme === 'dark'
+      ? 'light'
+      : 'dark';
+
+  document.documentElement.setAttribute(
+    'data-theme',
+    newTheme
+  );
 
   localStorage.setItem(
     'spendly_theme',
-    isDark ? 'dark' : 'light'
+    newTheme
   );
 
-  updateThemeIcon();
+  updateThemeIcon(newTheme);
 }
-
-
-/**
- * Updates the theme toggle icon.
- */
-function updateThemeIcon() {
-  const toggleButton = document.getElementById('theme-toggle');
-
-  if (!toggleButton) return;
-
-  const isDark = document.documentElement.classList.contains('dark');
-
-  const lightIcon = toggleButton.querySelector('.theme-icon-light');
-  const darkIcon = toggleButton.querySelector('.theme-icon-dark');
-
-  if (lightIcon) {
-    lightIcon.hidden = isDark;
-  }
-
-  if (darkIcon) {
-    darkIcon.hidden = !isDark;
-  }
-}
-
-// ─── EVENT LISTENERS ──────────────────────────────────────────────────────────
-
-function setupEventListeners() {
-  const btnAdd = document.getElementById('btn-add');
-  const transactionList = document.getElementById('transaction-list');
-  const btnConfirmDelete = document.getElementById('btn-confirm-delete');
-  const btnCancelDelete = document.getElementById('btn-cancel-delete');
-  const sortControl = document.getElementById('sort-control');
-  const themeToggle = document.getElementById('theme-toggle');
-
-  // Add transaction
-  if (btnAdd) {
-    btnAdd.addEventListener('click', handleAddTransaction);
-  }
-
-  // Delete transaction
-  if (transactionList) {
-    transactionList.addEventListener('click', (event) => {
-      const deleteButton = event.target.closest('.btn-delete');
-
-      if (!deleteButton) return;
-
-      const id = deleteButton.dataset.id;
-
-      if (id) {
-        handleDeleteClick(id);
-      }
-    });
-  }
-
-  // Confirm delete
-  if (btnConfirmDelete) {
-    btnConfirmDelete.addEventListener('click', handleConfirmDelete);
-  }
-
-  // Cancel delete
-  if (btnCancelDelete) {
-    btnCancelDelete.addEventListener('click', handleCancelDelete);
-  }
-
-  // Sorting
-  if (sortControl) {
-    sortControl.addEventListener('change', handleSortChange);
-  }
-
-  // Theme toggle
-  if (themeToggle) {
-    themeToggle.addEventListener('click', toggleTheme);
-  }
-}
-
-// ─── INITIALIZATION ───────────────────────────────────────────────────────────
 
 function initTheme() {
-  const savedTheme = localStorage.getItem('spendly_theme');
+  const savedTheme =
+    localStorage.getItem('spendly_theme');
 
-  if (savedTheme === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else if (savedTheme === 'light') {
-    document.documentElement.classList.remove('dark');
-  } else {
-    // Kalau belum pernah memilih tema, ikuti tema dari browser/device
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (savedTheme) {
+    document.documentElement.setAttribute(
+      'data-theme',
+      savedTheme
+    );
 
-    if (prefersDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    updateThemeIcon(savedTheme);
+
+    return;
   }
 
-  updateThemeIcon();
+  const prefersDark =
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  const theme =
+    prefersDark
+      ? 'dark'
+      : 'light';
+
+  document.documentElement.setAttribute(
+    'data-theme',
+    theme
+  );
+
+  updateThemeIcon(theme);
 }
 
+
+// ============================================
+// Event Listener Setup
+// ============================================
+
+function setupEventListeners() {
+  const form = document.getElementById('transaction-form');
+
+  if (form) {
+    form.addEventListener(
+      'submit',
+      handleAddTransaction
+    );
+  }
+
+  const transactionList =
+    document.getElementById('transaction-list');
+
+  if (transactionList) {
+    transactionList.addEventListener(
+      'click',
+      handleDeleteClick
+    );
+  }
+
+  const confirmButton =
+    document.getElementById('btn-confirm-delete');
+
+  if (confirmButton) {
+    confirmButton.addEventListener(
+      'click',
+      handleConfirmDelete
+    );
+  }
+
+  const cancelButton =
+    document.getElementById('btn-cancel-delete');
+
+  if (cancelButton) {
+    cancelButton.addEventListener(
+      'click',
+      handleCancelDelete
+    );
+  }
+
+  const sortControl =
+    document.getElementById('sort-control');
+
+  if (sortControl) {
+    sortControl.addEventListener(
+      'change',
+      handleSortChange
+    );
+  }
+
+  const themeToggle =
+    document.getElementById('theme-toggle');
+
+  if (themeToggle) {
+    themeToggle.addEventListener(
+      'click',
+      toggleTheme
+    );
+  }
+
+  const closeErrorButton =
+    document.getElementById('btn-close-error');
+
+  if (closeErrorButton) {
+    closeErrorButton.addEventListener(
+      'click',
+      () => {
+        const error =
+          document.getElementById('global-error');
+
+        if (error) {
+          error.classList.add('hidden');
+        }
+      }
+    );
+  }
+}
+
+
+// ============================================
+// Application Initialization
+// ============================================
+
 function init() {
-  // 1. Terapkan tema terlebih dahulu
   initTheme();
 
-  // 2. Ambil data transaksi dari Local Storage
   transactions = loadFromStorage();
 
-  // 3. Pasang semua event listener
   setupEventListeners();
 
-  // 4. Tampilkan data ke halaman
   renderAll();
 }
 
-// Jalankan aplikasi setelah HTML selesai dimuat
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener(
+  'DOMContentLoaded',
+  init
+);

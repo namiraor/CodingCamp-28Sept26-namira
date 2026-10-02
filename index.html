@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,7 +11,7 @@
     <!-- Global Error Banner -->
     <div id="global-error" role="alert" hidden>
       <span id="global-error-msg"></span>
-      <button id="btn-close-error" aria-label="Tutup notifikasi">&times;</button>
+      <button id="btn-close-error" aria-label="Close notification">&times;</button>
     </div>
 
     <!-- Header -->
@@ -21,7 +21,7 @@
           <span class="logo-icon">💸</span>
           <span class="logo-text">Spendly - Expense &amp; Budget Visualizer</span>
         </div>
-        <button id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle tema">
+        <button id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
           <span class="theme-icon-light">☀️</span>
           <span class="theme-icon-dark">🌙</span>
         </button>
@@ -37,56 +37,61 @@
 
           <!-- Transaction Form Card -->
           <div class="card" id="form-card">
-            <h2 class="card-title">Tambah Pengeluaran</h2>
+            <h2 class="card-title">Add Expense</h2>
             <form id="transaction-form" novalidate>
               <div class="form-group">
-                <label for="input-name">Nama Pengeluaran</label>
+                <label for="input-name">Expense Name</label>
                 <input
                   type="text"
                   id="input-name"
-                  placeholder="contoh: Makan siang"
+                  placeholder="e.g. Lunch"
                   maxlength="100"
                   autocomplete="off"
                 />
                 <span class="error-msg" id="error-name" role="alert"></span>
               </div>
+
               <div class="form-group">
-                <label for="input-amount">Nominal (Rp)</label>
+                <label for="input-amount">Amount (Rp)</label>
                 <input
                   type="number"
                   id="input-amount"
-                  placeholder="contoh: 25000"
+                  placeholder="e.g. 25000"
                   min="0.01"
                   max="999999999.99"
                   step="0.01"
                 />
                 <span class="error-msg" id="error-amount" role="alert"></span>
               </div>
+
               <div class="form-group">
-                <label for="select-category">Kategori</label>
+                <label for="select-category">Category</label>
                 <select id="select-category">
-                  <option value="">-- Pilih Kategori --</option>
+                  <option value="">-- Select Category --</option>
                   <option value="Food">Food</option>
                   <option value="Transport">Transport</option>
                   <option value="Fun">Fun</option>
                 </select>
                 <span class="error-msg" id="error-category" role="alert"></span>
               </div>
-              <button type="button" id="btn-add" class="btn btn-primary">+ Tambah</button>
+
+              <button type="button" id="btn-add" class="btn btn-primary">
+                + Add Expense
+              </button>
             </form>
           </div>
 
           <!-- Summary Panel Card -->
           <div class="card" id="summary-card">
-            <h2 class="card-title">Total Pengeluaran</h2>
+            <h2 class="card-title">Total Expenses</h2>
             <p id="total-display" class="total-amount">Rp0</p>
           </div>
 
           <!-- Monthly Summary Card -->
           <div class="card" id="monthly-card">
-            <h2 class="card-title">Ringkasan Bulanan</h2>
+            <h2 class="card-title">Monthly Summary</h2>
             <div id="monthly-summary">
-              <p class="empty-state">Belum ada transaksi.</p>
+              <p class="empty-state">No transactions yet.</p>
             </div>
           </div>
 
@@ -98,29 +103,48 @@
           <!-- Sort Control + Transaction List Card -->
           <div class="card" id="list-card">
             <div class="list-header">
-              <h2 class="card-title">Daftar Transaksi</h2>
+              <h2 class="card-title">Transaction List</h2>
+
               <div class="sort-wrapper">
-                <label for="sort-control">Urutkan:</label>
+                <label for="sort-control">Sort by:</label>
                 <select id="sort-control">
-                  <option value="date-desc" selected>Terbaru</option>
-                  <option value="amount-desc">Nominal: Terbesar</option>
-                  <option value="amount-asc">Nominal: Terkecil</option>
-                  <option value="category-asc">Kategori: A–Z</option>
+                  <option value="date-desc" selected>Newest</option>
+                  <option value="amount-desc">Amount: Highest</option>
+                  <option value="amount-asc">Amount: Lowest</option>
+                  <option value="category-asc">Category: A–Z</option>
                 </select>
               </div>
             </div>
-            <ul id="transaction-list" aria-label="Daftar transaksi"></ul>
-            <p id="empty-msg" class="empty-state">Belum ada transaksi. Tambahkan pengeluaran pertamamu!</p>
+
+            <ul id="transaction-list" aria-label="Transaction list"></ul>
+
+            <p id="empty-msg" class="empty-state">
+              No transactions yet. Add your first expense!
+            </p>
           </div>
 
           <!-- Pie Chart Card -->
           <div class="card" id="chart-card">
-            <h2 class="card-title">Distribusi Pengeluaran</h2>
+            <h2 class="card-title">Expense Distribution</h2>
+
             <div class="chart-wrapper">
-              <canvas id="pie-chart" width="260" height="260" aria-label="Pie chart distribusi pengeluaran"></canvas>
-              <p id="chart-empty-msg" class="empty-state">Belum ada data untuk ditampilkan.</p>
+              <canvas
+                id="pie-chart"
+                width="260"
+                height="260"
+                aria-label="Expense distribution pie chart"
+              ></canvas>
+
+              <p id="chart-empty-msg" class="empty-state">
+                No data to display yet.
+              </p>
             </div>
-            <ul id="chart-legend" class="chart-legend" aria-label="Legenda chart"></ul>
+
+            <ul
+              id="chart-legend"
+              class="chart-legend"
+              aria-label="Chart legend"
+            ></ul>
           </div>
 
         </section>
@@ -131,11 +155,21 @@
     <!-- Confirmation Dialog -->
     <dialog id="confirm-dialog" aria-labelledby="dialog-title">
       <div class="dialog-content">
-        <h3 id="dialog-title">Hapus Transaksi</h3>
-        <p>Apakah kamu yakin ingin menghapus transaksi ini? Tindakan ini tidak bisa dibatalkan.</p>
+        <h3 id="dialog-title">Delete Transaction</h3>
+
+        <p>
+          Are you sure you want to delete this transaction?
+          This action cannot be undone.
+        </p>
+
         <div class="dialog-actions">
-          <button id="btn-cancel-delete" class="btn btn-secondary">Batal</button>
-          <button id="btn-confirm-delete" class="btn btn-danger">Hapus</button>
+          <button id="btn-cancel-delete" class="btn btn-secondary">
+            Cancel
+          </button>
+
+          <button id="btn-confirm-delete" class="btn btn-danger">
+            Delete
+          </button>
         </div>
       </div>
     </dialog>
