@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spendly – Expense &amp; Budget Visualizer</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+
+    <!-- Global Error Banner -->
+    <div id="global-error" role="alert" hidden>
+      <span id="global-error-msg"></span>
+      <button id="btn-close-error" aria-label="Tutup notifikasi">&times;</button>
+    </div>
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="logo">
+          <span class="logo-icon">💸</span>
+          <span class="logo-text">Spendly</span>
+        </div>
+        <button id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle tema">
+          <span class="theme-icon-light">☀️</span>
+          <span class="theme-icon-dark">🌙</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+      <div class="layout">
+
+        <!-- Left Column -->
+        <aside class="left-col">
+
+          <!-- Transaction Form Card -->
+          <div class="card" id="form-card">
+            <h2 class="card-title">Tambah Pengeluaran</h2>
+            <form id="transaction-form" novalidate>
+              <div class="form-group">
+                <label for="input-name">Nama Pengeluaran</label>
+                <input
+                  type="text"
+                  id="input-name"
+                  placeholder="contoh: Makan siang"
+                  maxlength="100"
+                  autocomplete="off"
+                />
+                <span class="error-msg" id="error-name" role="alert"></span>
+              </div>
+              <div class="form-group">
+                <label for="input-amount">Nominal (Rp)</label>
+                <input
+                  type="number"
+                  id="input-amount"
+                  placeholder="contoh: 25000"
+                  min="0.01"
+                  max="999999999.99"
+                  step="0.01"
+                />
+                <span class="error-msg" id="error-amount" role="alert"></span>
+              </div>
+              <div class="form-group">
+                <label for="select-category">Kategori</label>
+                <select id="select-category">
+                  <option value="">-- Pilih Kategori --</option>
+                  <option value="Food">Food</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Fun">Fun</option>
+                </select>
+                <span class="error-msg" id="error-category" role="alert"></span>
+              </div>
+              <button type="button" id="btn-add" class="btn btn-primary">+ Tambah</button>
+            </form>
+          </div>
+
+          <!-- Summary Panel Card -->
+          <div class="card" id="summary-card">
+            <h2 class="card-title">Total Pengeluaran</h2>
+            <p id="total-display" class="total-amount">Rp0</p>
+          </div>
+
+          <!-- Monthly Summary Card -->
+          <div class="card" id="monthly-card">
+            <h2 class="card-title">Ringkasan Bulanan</h2>
+            <div id="monthly-summary">
+              <p class="empty-state">Belum ada transaksi.</p>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- Right Column -->
+        <section class="right-col">
+
+          <!-- Sort Control + Transaction List Card -->
+          <div class="card" id="list-card">
+            <div class="list-header">
+              <h2 class="card-title">Daftar Transaksi</h2>
+              <div class="sort-wrapper">
+                <label for="sort-control">Urutkan:</label>
+                <select id="sort-control">
+                  <option value="date-desc" selected>Terbaru</option>
+                  <option value="amount-desc">Nominal: Terbesar</option>
+                  <option value="amount-asc">Nominal: Terkecil</option>
+                  <option value="category-asc">Kategori: A–Z</option>
+                </select>
+              </div>
+            </div>
+            <ul id="transaction-list" aria-label="Daftar transaksi"></ul>
+            <p id="empty-msg" class="empty-state">Belum ada transaksi. Tambahkan pengeluaran pertamamu!</p>
+          </div>
+
+          <!-- Pie Chart Card -->
+          <div class="card" id="chart-card">
+            <h2 class="card-title">Distribusi Pengeluaran</h2>
+            <div class="chart-wrapper">
+              <canvas id="pie-chart" width="260" height="260" aria-label="Pie chart distribusi pengeluaran"></canvas>
+              <p id="chart-empty-msg" class="empty-state">Belum ada data untuk ditampilkan.</p>
+            </div>
+            <ul id="chart-legend" class="chart-legend" aria-label="Legenda chart"></ul>
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Confirmation Dialog -->
+    <dialog id="confirm-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-content">
+        <h3 id="dialog-title">Hapus Transaksi</h3>
+        <p>Apakah kamu yakin ingin menghapus transaksi ini? Tindakan ini tidak bisa dibatalkan.</p>
+        <div class="dialog-actions">
+          <button id="btn-cancel-delete" class="btn btn-secondary">Batal</button>
+          <button id="btn-confirm-delete" class="btn btn-danger">Hapus</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script src="js/app.js" defer></script>
+  </body>
+</html>
