@@ -419,6 +419,7 @@ function renderPieChart() {
 
     context.beginPath();
     context.moveTo(centerX, centerY);
+
     context.arc(
       centerX,
       centerY,
@@ -426,15 +427,17 @@ function renderPieChart() {
       startAngle,
       endAngle
     );
-    context.closePath();
 
+    context.closePath();
     context.fillStyle = CATEGORY_COLORS[category];
     context.fill();
 
     startAngle = endAngle;
 
-    const legendItem = document.createElement('div');
+    // Hitung persentase setiap kategori
+    const percentage = ((amount / total) * 100).toFixed(1);
 
+    const legendItem = document.createElement('div');
     legendItem.className = 'legend-item';
 
     legendItem.innerHTML = `
@@ -448,14 +451,13 @@ function renderPieChart() {
       </span>
 
       <span class="legend-value">
-        ${formatRupiah(amount)}
+        ${percentage}%
       </span>
     `;
 
     legend.appendChild(legendItem);
   });
 }
-
 
 // ============================================
 // Render Monthly Summary
@@ -633,13 +635,15 @@ function handleSortChange(event) {
 // Theme
 // ============================================
 
-function updateThemeIcon(theme) {
+function updateThemeIcon() {
   const lightIcon = document.querySelector('.theme-icon-light');
   const darkIcon = document.querySelector('.theme-icon-dark');
 
   if (!lightIcon || !darkIcon) return;
 
-  if (theme === 'dark') {
+  const isDark = document.documentElement.classList.contains('dark');
+
+  if (isDark) {
     lightIcon.classList.add('hidden');
     darkIcon.classList.remove('hidden');
   } else {
@@ -649,59 +653,37 @@ function updateThemeIcon(theme) {
 }
 
 function toggleTheme() {
-  const currentTheme =
-    document.documentElement.getAttribute('data-theme');
-
-  const newTheme =
-    currentTheme === 'dark'
-      ? 'light'
-      : 'dark';
-
-  document.documentElement.setAttribute(
-    'data-theme',
-    newTheme
-  );
+  const isDark = document.documentElement.classList.toggle('dark');
 
   localStorage.setItem(
     'spendly_theme',
-    newTheme
+    isDark ? 'dark' : 'light'
   );
 
-  updateThemeIcon(newTheme);
+  updateThemeIcon();
 }
 
 function initTheme() {
-  const savedTheme =
-    localStorage.getItem('spendly_theme');
+  const savedTheme = localStorage.getItem('spendly_theme');
 
-  if (savedTheme) {
-    document.documentElement.setAttribute(
-      'data-theme',
-      savedTheme
-    );
+  if (savedTheme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else if (savedTheme === 'light') {
+    document.documentElement.classList.remove('dark');
+  } else {
+    const prefersDark =
+      window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    updateThemeIcon(savedTheme);
-
-    return;
+    if (prefersDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }
 
-  const prefersDark =
-    window.matchMedia &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-  const theme =
-    prefersDark
-      ? 'dark'
-      : 'light';
-
-  document.documentElement.setAttribute(
-    'data-theme',
-    theme
-  );
-
-  updateThemeIcon(theme);
+  updateThemeIcon();
 }
-
 
 // ============================================
 // Event Listener Setup
