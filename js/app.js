@@ -36,27 +36,28 @@ function formatRupiah(amount) {
 function validateForm(description, amount, category) {
   const errors = {};
 
- if (!description || description.trim() === '') {
-  errors.description = 'Expense name is required';
-}
+  if (!description || description.trim() === '') {
+    errors.description = 'Expense name is required';
+  }
 
-const numericAmount = Number(amount);
+  const numericAmount = Number(amount);
 
-if (
-  amount === '' ||
-  amount === null ||
-  isNaN(numericAmount) ||
-  numericAmount < 0.01 ||
-  numericAmount > 999999999.99
-) {
-  errors.amount = 'Amount must be between 0.01 and 999,999,999.99';
-}
+  if (
+    amount === '' ||
+    amount === null ||
+    isNaN(numericAmount) ||
+    numericAmount < 0.01 ||
+    numericAmount > 999999999.99
+  ) {
+    errors.amount = 'Amount must be between 0.01 and 999,999,999.99';
+  }
 
-const validCategories = ['Food', 'Transport', 'Fun'];
+  const validCategories = ['Food', 'Transport', 'Fun'];
 
-if (!category || !validCategories.includes(category)) {
-  errors.category = 'Category is required';
-}
+  if (!category || !validCategories.includes(category)) {
+    errors.category = 'Category is required';
+  }
+
   return errors;
 }
 
